@@ -124,7 +124,6 @@ export default function SvetraChatPage() {
 
     const handleResetChat = () => {
         setMessages([]);
-        setSettingsOpen(false);
     };
 
     const handleSubmit = async (e?: React.FormEvent, directText?: string) => {
