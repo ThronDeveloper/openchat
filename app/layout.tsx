@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "OpenChat by Svetra",
   description: "Minimalist AI Chat Interface by Svetra",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 

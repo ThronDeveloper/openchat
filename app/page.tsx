@@ -10,6 +10,19 @@ const ChevronDownIcon = () => (
     </svg>
 );
 
+const LinksIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="6" cy="6" r="2.5"/>
+        <circle cx="18" cy="6" r="2.5"/>
+        <circle cx="6" cy="18" r="2.5"/>
+        <circle cx="18" cy="18" r="2.5"/>
+        <line x1="8.5" y1="6" x2="15.5" y2="6"/>
+        <line x1="6" y1="8.5" x2="6" y2="15.5"/>
+        <line x1="18" y1="8.5" x2="18" y2="15.5"/>
+        <line x1="8.5" y1="18" x2="15.5" y2="18"/>
+    </svg>
+);
+
 
 
 
@@ -51,11 +64,14 @@ const InstagramIcon = () => (
 
 
 
-const ThinkingIndicator = () => (
-    <div className="thinking-indicator">
-        <span className="dot">.</span>
-        <span className="dot">.</span>
-        <span className="dot">.</span>
+const ThinkingIndicator = ({ onClick }: { onClick?: () => void }) => (
+    <div className="thinking-indicator" onClick={onClick}>
+        <div className="thinking-dots">
+            <span className="thinking-dot"></span>
+            <span className="thinking-dot"></span>
+            <span className="thinking-dot"></span>
+        </div>
+        <span className="thinking-text">Thinking...</span>
     </div>
 );
 
@@ -64,14 +80,29 @@ const TypewriterText = ({ text }: { text: string }) => {
     const [displayedText, setDisplayedText] = useState("");
     
     useEffect(() => {
-        if (displayedText.length < text.length) {
-            const timer = setTimeout(() => {
-                setDisplayedText(text.slice(0, displayedText.length + 1));
-            }, 10);
-            return () => clearTimeout(timer);
+        if (!text) {
+            setDisplayedText("");
+            return;
         }
-    }, [text, displayedText]);
-
+        
+        let index = displayedText.length;
+        if (index >= text.length) {
+            setDisplayedText(text);
+            return;
+        }
+        
+        const interval = setInterval(() => {
+            if (index < text.length) {
+                setDisplayedText(text.slice(0, index + 1));
+                index++;
+            } else {
+                clearInterval(interval);
+            }
+        }, 10);
+        
+        return () => clearInterval(interval);
+    }, [text]);
+    
     return (
         <div className="markdown-content">
             <ReactMarkdown>{displayedText}</ReactMarkdown>
@@ -83,23 +114,83 @@ const TypewriterText = ({ text }: { text: string }) => {
 
 
 
+const SparklesIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
+    </svg>
+);
+
+const CodeIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="16 18 22 12 16 6"/>
+        <polyline points="8 6 2 12 8 18"/>
+    </svg>
+);
+
+const FileTextIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+);
+
+const BoltIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+    </svg>
+);
+
+const ReasoningIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" strokeWidth="1.5" />
+        <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
+    </svg>
+);
+
+const LightbulbIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 18h6"/>
+        <path d="M10 22h4"/>
+        <path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>
+    </svg>
+);
+
+const DotsIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="5" cy="12" r="2"/>
+        <circle cx="12" cy="12" r="2"/>
+        <circle cx="19" cy="12" r="2"/>
+    </svg>
+);
+
+const getModelDisplayName = (model: string) => {
+    if (!model) return "OpenChat";
+    const name = model.split('/').pop()?.split(':')[0] || "Model";
+    const cleaned = name.replace(/-\d+[ba](-\d+[ba])?/g, '').replace(/-/g, ' ');
+    return cleaned.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+};
+
 const suggestions = [
-    { label: "Brainstorm", prompt: "Give me 5 creative ideas for a minimalist project." },
-    { label: "Code", prompt: "Write a high-quality React code snippet for a chat UI." },
-    { label: "Summarize text", prompt: "Summarize the key points of the latest AI trends." },
-    { label: "Get advice", prompt: "What is the best approach to learn Next.js effectively?" },
-    { label: "More", prompt: "Help me explore more topics like history or science." },
+    { label: "Brainstorm", prompt: "Give me 5 creative ideas for a minimalist project.", icon: SparklesIcon },
+    { label: "Code", prompt: "Write a high-quality React code snippet for a chat UI.", icon: CodeIcon },
+    { label: "Summarize text", prompt: "Summarize the key points of the latest AI trends.", icon: FileTextIcon },
+    { label: "Get advice", prompt: "What is the best approach to learn Next.js effectively?", icon: LightbulbIcon },
+    { label: "More", prompt: "Help me explore more topics like history or science.", icon: DotsIcon },
 ];
 
 
 export default function SvetraChatPage() {
     const [inputValue, setInputValue] = useState("");
     const [socialOpen, setSocialOpen] = useState(false);
-    const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+    const [messages, setMessages] = useState<{ role: string; content: string; thinking?: string }[]>([]);
 
 
 
     const [isTyping, setIsTyping] = useState(false);
+    const [thinkingVisible, setThinkingVisible] = useState<Record<number, boolean>>({});
     
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -134,9 +225,10 @@ export default function SvetraChatPage() {
         const userMessage = { role: "user", content: textToSend };
 
         const chatHistory = [...messages, userMessage];
-        setMessages([...chatHistory, { role: "assistant", content: "" }]);
+        setMessages([...chatHistory, { role: "assistant", content: "", thinking: "" }]);
         setInputValue("");
         setIsTyping(true);
+        setThinkingVisible({});
 
         try {
             const url = "https://openrouter.ai/api/v1/chat/completions";
@@ -147,13 +239,13 @@ export default function SvetraChatPage() {
                     "Authorization": `Bearer ${apiKey}`,
                     "Content-Type": "application/json",
                     "HTTP-Referer": "http://localhost:3000",
-                    "X-Title": "Svetra Chat"
+                    "X-Title": "OpenChat"
                 },
 
                 body: JSON.stringify({
                     model: selectedModel,
                     messages: chatHistory.map(m => ({ role: m.role, content: m.content })),
-                    stream: true,
+                    stream: true
                 })
             });
 
@@ -174,8 +266,9 @@ export default function SvetraChatPage() {
             if (!reader) return;
 
             let assistantContent = "";
+            let lastUpdate = Date.now();
 
-
+  
             const decoder = new TextDecoder();
             let buffer = "";
             while (true) {
@@ -186,6 +279,7 @@ export default function SvetraChatPage() {
                 const lines = buffer.split("\n");
                 buffer = lines.pop() || "";
                 
+                let shouldUpdate = false;
                 for (const line of lines) {
                     const trimmed = line.trim();
                     if (!trimmed || trimmed === "data: [DONE]") continue;
@@ -197,18 +291,27 @@ export default function SvetraChatPage() {
                             const content = parsed.choices[0]?.delta?.content || "";
                             if (content) {
                                 assistantContent += content;
-                                setMessages(prev => {
-                                    const newMsgs = [...prev];
-                                    newMsgs[newMsgs.length - 1].content = assistantContent;
-                                    return newMsgs;
-                                });
+                                shouldUpdate = true;
                             }
                         } catch (e) {
                             // Silent catch for partial JSON
                         }
                     }
                 }
+                if (shouldUpdate && Date.now() - lastUpdate > 50) {
+                    lastUpdate = Date.now();
+                    setMessages(prev => {
+                        const newMsgs = [...prev];
+                        newMsgs[newMsgs.length - 1].content = assistantContent;
+                        return newMsgs;
+                    });
+                }
             }
+            setMessages(prev => {
+                const newMsgs = [...prev];
+                newMsgs[newMsgs.length - 1].content = assistantContent;
+                return newMsgs;
+            });
 
         } catch (err) {
             console.error("Chat error:", err);
@@ -231,10 +334,10 @@ export default function SvetraChatPage() {
                 </div>
                 <div className="nav-right">
                     <div className="social-wrapper">
-                        <div className="social-trigger" onClick={() => setSocialOpen(!socialOpen)}>
-                            <span className="logo-text">Links</span>
+                        <button className="links-button" onClick={() => setSocialOpen(!socialOpen)}>
+                            <LinksIcon />
                             <ChevronDownIcon />
-                        </div>
+                        </button>
 
                         {socialOpen && (
                             <div className="social-dropdown">
@@ -265,15 +368,18 @@ export default function SvetraChatPage() {
                     <div className="hero-section">
                         <h1 className="headline">What can I help with ?</h1>
                         <div className="suggestions">
-                            {suggestions.map((s, i) => (
-                                <button key={i} className={`suggestion-pill ${s.label === "More" ? "suggestion-more" : ""}`} onClick={() => {
-                                    setInputValue(s.prompt);
-                                    textareaRef.current?.focus();
-                                }}>
-                                    {s.label}
-                                </button>
-
-                            ))}
+                            {suggestions.map((s, i) => {
+                                const Icon = s.icon;
+                                return (
+                                    <button key={i} className={`suggestion-pill ${s.label === "More" ? "suggestion-more" : ""}`} onClick={() => {
+                                        setInputValue(s.prompt);
+                                        textareaRef.current?.focus();
+                                    }}>
+                                        <Icon />
+                                        <span>{s.label}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
 
                     </div>
@@ -282,7 +388,7 @@ export default function SvetraChatPage() {
                         <div className="messages-list">
                             {messages.map((m, i) => (
                                 <div key={i} className={`message-item ${m.role}`}>
-                                    <div className="message-label">{m.role === "user" ? "You" : "Svetra"}</div>
+                                    <div className="message-label">{m.role === "user" ? "You" : getModelDisplayName(selectedModel)}</div>
                                     <div className="message-content">
                                         {m.role === "assistant" ? (
                                             !m.content && isTyping ? (
@@ -324,18 +430,12 @@ export default function SvetraChatPage() {
                                 }}
                             />
                             <div className="input-actions">
-                                <div className="action-left">
-                                </div>
-
-
-
-
+                                <div className="action-left"></div>
                                 <div className="action-right">
                                     <button type="submit" className="btn-send" disabled={isTyping || !inputValue.trim()}>
                                         <ArrowUpIcon />
                                     </button>
                                 </div>
-
                             </div>
                         </form>
                     </div>
