@@ -80,24 +80,15 @@ const TypewriterText = ({ text }: { text: string }) => {
     const [displayedText, setDisplayedText] = useState("");
     
     useEffect(() => {
-        if (!text) {
-            setDisplayedText("");
-            return;
-        }
-        
-        let index = displayedText.length;
-        if (index >= text.length) {
-            setDisplayedText(text);
-            return;
-        }
-        
         const interval = setInterval(() => {
-            if (index < text.length) {
-                setDisplayedText(text.slice(0, index + 1));
-                index++;
-            } else {
+            setDisplayedText(prev => {
+                if (!text) return "";
+                if (prev.length < text.length) {
+                    return text.slice(0, prev.length + 1);
+                }
                 clearInterval(interval);
-            }
+                return prev;
+            });
         }, 10);
         
         return () => clearInterval(interval);
@@ -136,19 +127,6 @@ const FileTextIcon = () => (
     </svg>
 );
 
-const BoltIcon = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-    </svg>
-);
-
-const ReasoningIcon = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="9" strokeWidth="1.5" />
-        <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
-        <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
-    </svg>
-);
 
 const LightbulbIcon = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -189,8 +167,8 @@ export default function SvetraChatPage() {
 
 
 
+
     const [isTyping, setIsTyping] = useState(false);
-    const [thinkingVisible, setThinkingVisible] = useState<Record<number, boolean>>({});
     
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -228,7 +206,6 @@ export default function SvetraChatPage() {
         setMessages([...chatHistory, { role: "assistant", content: "", thinking: "" }]);
         setInputValue("");
         setIsTyping(true);
-        setThinkingVisible({});
 
         try {
             const url = "https://openrouter.ai/api/v1/chat/completions";
@@ -255,7 +232,7 @@ export default function SvetraChatPage() {
                 try {
                     const errorJson = JSON.parse(errorText);
                     errMsg = errorJson.error?.message || errMsg;
-                } catch (e) {
+                } catch {
                     errMsg = `${errMsg} (${response.status})`;
                 }
                 throw new Error(errMsg);
@@ -293,7 +270,7 @@ export default function SvetraChatPage() {
                                 assistantContent += content;
                                 shouldUpdate = true;
                             }
-                        } catch (e) {
+                        } catch {
                             // Silent catch for partial JSON
                         }
                     }
