@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 
 
+
 const ChevronDownIcon = () => (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="6 9 12 15 18 9" />
@@ -22,24 +23,6 @@ const LinksIcon = () => (
         <line x1="8.5" y1="18" x2="15.5" y2="18"/>
     </svg>
 );
-
-
-
-
-
-
-
-
-
-
-const ArrowUpIcon = () => (
-
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" y1="19" x2="12" y2="5"></line>
-        <polyline points="5 12 12 5 19 12"></polyline>
-    </svg>
-);
-
 
 const DiscordIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -61,7 +44,12 @@ const InstagramIcon = () => (
     </svg>
 );
 
-
+const ArrowUpIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="19" x2="12" y2="5"></line>
+        <polyline points="5 12 12 5 19 12"></polyline>
+    </svg>
+);
 
 
 const ThinkingIndicator = ({ onClick }: { onClick?: () => void }) => (
@@ -170,11 +158,19 @@ export default function SvetraChatPage() {
 
     const [isTyping, setIsTyping] = useState(false);
     
+    // Provider and Model State
+    const [provider, setProvider] = useState<'cloud' | 'local'>('cloud');
+    const [localModels, setLocalModels] = useState<string[]>([]);
+    const [selectedCloudModel] = useState(process.env.NEXT_PUBLIC_DEFAULT_MODEL || "google/gemini-2.0-flash-lite-preview-02-05:free");
+    const [selectedLocalModel, setSelectedLocalModel] = useState("");
+
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const apiKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "";
-    const selectedModel = process.env.NEXT_PUBLIC_DEFAULT_MODEL || "openai/gpt-4o-mini";
+    
+    // Derived selected model
+    const currentModel = provider === 'cloud' ? selectedCloudModel : selectedLocalModel;
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -190,6 +186,24 @@ export default function SvetraChatPage() {
             textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
         }
     }, [inputValue]);
+
+    // Fetch Ollama models
+    useEffect(() => {
+        const fetchOllamaModels = async () => {
+            try {
+                const response = await fetch("http://localhost:11434/api/tags");
+                if (response.ok) {
+                    const data = await response.json();
+                    const models = data.models.map((m: { name: string }) => m.name);
+                    setLocalModels(models);
+                    setSelectedLocalModel(prev => prev || (models.length > 0 ? models[0] : ""));
+                }
+            } catch {
+                console.log("Ollama not running or unreachable");
+            }
+        };
+        fetchOllamaModels();
+    }, []);
 
     const handleResetChat = () => {
         setMessages([]);
@@ -208,91 +222,158 @@ export default function SvetraChatPage() {
         setIsTyping(true);
 
         try {
-            const url = "https://openrouter.ai/api/v1/chat/completions";
+            if (provider === 'cloud') {
+                const url = "https://openrouter.ai/api/v1/chat/completions";
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${apiKey}`,
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "http://localhost:3000",
+                        "X-Title": "OpenChat"
+                    },
+                    body: JSON.stringify({
+                        model: selectedCloudModel,
+                        messages: chatHistory.map(m => ({ role: m.role, content: m.content })),
+                        stream: true
+                    })
+                });
 
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${apiKey}`,
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "http://localhost:3000",
-                    "X-Title": "OpenChat"
-                },
-
-                body: JSON.stringify({
-                    model: selectedModel,
-                    messages: chatHistory.map(m => ({ role: m.role, content: m.content })),
-                    stream: true
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                let errMsg = "API request failed";
-                try {
-                    const errorJson = JSON.parse(errorText);
-                    errMsg = errorJson.error?.message || errMsg;
-                } catch {
-                    errMsg = `${errMsg} (${response.status})`;
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let errMsg = "API request failed";
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        errMsg = errorJson.error?.message || errMsg;
+                    } catch {
+                        errMsg = `${errMsg} (${response.status})`;
+                    }
+                    throw new Error(errMsg);
                 }
-                throw new Error(errMsg);
-            }
 
+                const reader = response.body?.getReader();
+                if (!reader) return;
 
-            const reader = response.body?.getReader();
-            if (!reader) return;
-
-            let assistantContent = "";
-            let lastUpdate = Date.now();
-
-  
-            const decoder = new TextDecoder();
-            let buffer = "";
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split("\n");
-                buffer = lines.pop() || "";
+                let assistantContent = "";
+                let lastUpdate = Date.now();
+                const decoder = new TextDecoder();
+                let buffer = "";
                 
-                let shouldUpdate = false;
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed || trimmed === "data: [DONE]") continue;
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                    if (trimmed.startsWith("data: ")) {
-                        const message = trimmed.replace(/^data: /, "");
-                        try {
-                            const parsed = JSON.parse(message);
-                            const content = parsed.choices[0]?.delta?.content || "";
-                            if (content) {
-                                assistantContent += content;
-                                shouldUpdate = true;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() || "";
+                    
+                    let shouldUpdate = false;
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed || trimmed === "data: [DONE]") continue;
+
+                        if (trimmed.startsWith("data: ")) {
+                            const message = trimmed.replace(/^data: /, "");
+                            try {
+                                const parsed = JSON.parse(message);
+                                const content = parsed.choices[0]?.delta?.content || "";
+                                if (content) {
+                                    assistantContent += content;
+                                    shouldUpdate = true;
+                                }
+                            } catch {
+                                // Silent catch for partial JSON
                             }
-                        } catch {
-                            // Silent catch for partial JSON
                         }
                     }
+                    if (shouldUpdate && Date.now() - lastUpdate > 50) {
+                        lastUpdate = Date.now();
+                        setMessages(prev => {
+                            const newMsgs = [...prev];
+                            newMsgs[newMsgs.length - 1].content = assistantContent;
+                            return newMsgs;
+                        });
+                    }
                 }
-                if (shouldUpdate && Date.now() - lastUpdate > 50) {
-                    lastUpdate = Date.now();
-                    setMessages(prev => {
-                        const newMsgs = [...prev];
-                        newMsgs[newMsgs.length - 1].content = assistantContent;
-                        return newMsgs;
-                    });
+                setMessages(prev => {
+                    const newMsgs = [...prev];
+                    newMsgs[newMsgs.length - 1].content = assistantContent;
+                    return newMsgs;
+                });
+            } else {
+                // Ollama Local API
+                const url = "http://localhost:11434/api/chat";
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: selectedLocalModel,
+                        messages: chatHistory.map(m => ({ role: m.role, content: m.content })),
+                        stream: true
+                    })
+                });
+
+                if (!response.ok) throw new Error("Ollama request failed");
+
+                const reader = response.body?.getReader();
+                if (!reader) return;
+
+                let assistantContent = "";
+                let lastUpdate = Date.now();
+                const decoder = new TextDecoder();
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() || "";
+
+                    let shouldUpdate = false;
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const parsed = JSON.parse(line);
+                            if (parsed.message?.content) {
+                                assistantContent += parsed.message.content;
+                                shouldUpdate = true;
+                            }
+                            if (parsed.done) break;
+                        } catch {
+                            // Partial JSON
+                        }
+                    }
+
+                    if (shouldUpdate && Date.now() - lastUpdate > 50) {
+                        lastUpdate = Date.now();
+                        setMessages(prev => {
+                            const newMsgs = [...prev];
+                            newMsgs[newMsgs.length - 1].content = assistantContent;
+                            return newMsgs;
+                        });
+                    }
                 }
+                setMessages(prev => {
+                    const newMsgs = [...prev];
+                    newMsgs[newMsgs.length - 1].content = assistantContent;
+                    return newMsgs;
+                });
             }
+
+        } catch (err: any) {
+            console.error("Chat error:", err);
+            const errorMessage = err?.message || "Could not reach the AI. Please verify your configuration.";
             setMessages(prev => {
                 const newMsgs = [...prev];
-                newMsgs[newMsgs.length - 1].content = assistantContent;
+                if (newMsgs.length > 0 && newMsgs[newMsgs.length - 1].role === "assistant" && !newMsgs[newMsgs.length - 1].content) {
+                    newMsgs[newMsgs.length - 1].content = `Error: ${errorMessage}`;
+                } else {
+                    newMsgs.push({ role: "assistant", content: `Error: ${errorMessage}` });
+                }
                 return newMsgs;
             });
-
-        } catch (err) {
-            console.error("Chat error:", err);
-            setMessages(prev => [...prev, { role: "assistant", content: "Error: Could not reach the AI. Please verify your .env configuration." }]);
         } finally {
             setIsTyping(false);
         }
@@ -305,7 +386,6 @@ export default function SvetraChatPage() {
                 <div className="nav-left">
                     <div className="branding-wrapper">
                         <span className="brand-openchat">OpenChat</span>
-
                         <span className="brand-by">by Svetra</span>
                     </div>
                 </div>
@@ -334,10 +414,7 @@ export default function SvetraChatPage() {
                         )}
                     </div>
                 </div>
-
-
             </nav>
-
 
             {/* Main Content */}
             <main className="main-content">
@@ -358,14 +435,13 @@ export default function SvetraChatPage() {
                                 );
                             })}
                         </div>
-
                     </div>
                 ) : (
                     <div className="chat-container">
                         <div className="messages-list">
                             {messages.map((m, i) => (
                                 <div key={i} className={`message-item ${m.role}`}>
-                                    <div className="message-label">{m.role === "user" ? "You" : getModelDisplayName(selectedModel)}</div>
+                                    <div className="message-label">{m.role === "user" ? "You" : getModelDisplayName(currentModel)}</div>
                                     <div className="message-content">
                                         {m.role === "assistant" ? (
                                             !m.content && isTyping ? (
@@ -380,8 +456,6 @@ export default function SvetraChatPage() {
 
                                 </div>
                             ))}
-
-
 
                             <div ref={messagesEndRef} />
                         </div>
